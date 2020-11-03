@@ -1,0 +1,37 @@
+import torch
+
+class ICMModel(nn.Module):
+    def __init__(self,n_inputs ,n_outputs):
+    
+        super(ICMModel,self).__init__()
+        self.n_inputs=n_inputs
+        self.n_outputs=n_outputs
+        self.device='cpu'
+        self.hidden_dims=32
+     
+    
+        self.feature=nn.Sequential(nn.Linear(self.n_inputs,self.hidden_dims),nn.ReLU(nn.BatchNorm1d(32)),
+                                   nn.Linear(self.hidden_dims,self.hidden_dims),nn.ReLU(nn.BatchNorm1d(32)),
+                                   nn.Linear(self.hidden_dims,self.hidden_dims),)# feature encoder
+       
+        self.inverse_net=nn.Sequential(nn.Linear(self.hidden_dims*2,self.hidden_dims),nn.ReLU(),  
+                                       nn.Linear(self.hidden_dims,self.hidden_dims),nn.ReLU(),
+                                       nn.Linear(self.hidden_dims,self.n_outputs))
+
+       
+        self.forward_net1=nn.Sequential(nn.Linear(self.n_outputs+self.hidden_dims,self.hidden_dims),nn.ReLU(nn.BatchNorm1d(32)),
+                                        nn.Linear(self.hidden_dims,self.hidden_dims),nn.ReLU(),
+                                        nn.Linear(self.hidden_dims,self.hidden_dims))
+        
+        optim = torch.optim.Adam(self.parameters(),lr=0.001)
+    def forward(self,inputs):
+        state, next_state, action=inputs
+        encode_state=self.feature(state)                                             
+        encode_next_state=self.feature(next_state)                              
+        pred_action = torch.cat((encode_state, encode_next_state), 1      
+        pred_action = F.softmax(self.inverse_net(pred_action),dim=-1)
+        pred_next_state_feature_orig=torch.cat((encode_state,action),1)
+        pred_next_state_feature_orig = self.forward_net1(pred_next_state_feature_orig)
+        real_next_state_feature = encode_next_state
+        
+        return real_next_state_feature, pred_next_state_feature_orig ,pred_action
